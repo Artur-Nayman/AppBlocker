@@ -2,9 +2,14 @@ import { useState, useEffect } from "react";
 import ProgramSelector from "./components/ProgramSelector";
 import Timer from "./components/Timer";
 import PinInput from "./components/PinInput";
+import SavedPrograms from "./components/SavedPrograms";
 
 export default function App() {
-  const [programs, setPrograms] = useState([]);
+  // State for the complete list of all programs ever added
+  const [savedPrograms, setSavedPrograms] = useState([]);
+  // State for programs selected for the current blocking session
+  const [selectedPrograms, setSelectedPrograms] = useState([]);
+  
   const [duration, setDuration] = useState(0);
   const [pin, setPin] = useState("");
   const [message, setMessage] = useState("");
@@ -13,18 +18,27 @@ export default function App() {
   const [countdown, setCountdown] = useState(0);
   const [blockedPrograms, setBlockedPrograms] = useState([]);
 
-  // Load and save programs from storage
+  // Load saved programs from storage on startup
   useEffect(() => {
     if (window.api && window.api.getPrograms) {
-      window.api.getPrograms().then(setPrograms);
+      window.api.getPrograms().then(setSavedPrograms);
     }
   }, []);
 
-  useEffect(() => {
+  // When blocking starts, update the main saved list with any new programs
+  const updateSavedPrograms = () => {
+    const newPrograms = [...new Set([...savedPrograms, ...selectedPrograms])];
+    setSavedPrograms(newPrograms);
     if (window.api && window.api.setPrograms) {
-      window.api.setPrograms(programs);
+      window.api.setPrograms(newPrograms);
     }
-  }, [programs]);
+  };
+
+  const handleSelectFromSaved = (program) => {
+    if (!selectedPrograms.includes(program)) {
+      setSelectedPrograms(prev => [...prev, program]);
+    }
+  };
 
   useEffect(() => {
     const handleBlockingState = (event, { isBlocking, duration, programs }) => {
@@ -33,6 +47,7 @@ export default function App() {
         setCountdown(duration);
         setBlockedPrograms(programs);
         setMessage("");
+        setSelectedPrograms([]); // Clear selection after starting
       } else {
         setCountdown(0);
         setBlockedPrograms([]);
@@ -64,8 +79,8 @@ export default function App() {
   const start = () => {
     setMessage("");
 
-    if (programs.length === 0) {
-      setMessage("Please add at least one program to block.");
+    if (selectedPrograms.length === 0) {
+      setMessage("Please select at least one program to block.");
       return;
     }
     if (duration <= 0) {
@@ -77,9 +92,11 @@ export default function App() {
       return;
     }
 
+    updateSavedPrograms(); // Update the master list
+
     if (window.api && window.api.startBlock) {
       window.api.startBlock({
-        processNames: programs,
+        processNames: selectedPrograms,
         durationMs: duration * 1000,
         pin
       });
@@ -104,6 +121,9 @@ export default function App() {
     }
   };
 
+  // Filter out programs that are already selected for the current session
+  const availableSavedPrograms = savedPrograms.filter(p => !selectedPrograms.includes(p));
+
   return (
     <div className="bg-neutral-900 text-white min-h-screen p-6 text-center">
       <h1 className="text-3xl font-bold mb-6">App Blocker</h1>
@@ -122,22 +142,23 @@ export default function App() {
           </div>
           <button
             onClick={stop}
-            className="mt-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+            className="mt-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
           >
             Stop Blocking with PIN
           </button>
         </div>
       ) : (
         <>
-          <ProgramSelector programs={programs} setPrograms={setPrograms} />
+          <ProgramSelector selectedPrograms={selectedPrograms} setSelectedPrograms={setSelectedPrograms} />
           <Timer onChange={setDuration} />
           <PinInput onChange={setPin} />
           <button
             onClick={start}
-            className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 w-full"
           >
             Start Blocking
           </button>
+          <SavedPrograms programs={availableSavedPrograms} onSelect={handleSelectFromSaved} />
         </>
       )}
 
