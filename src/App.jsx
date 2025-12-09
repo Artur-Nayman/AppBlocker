@@ -4,7 +4,7 @@ import Timer from "./components/Timer";
 import PinInput from "./components/PinInput";
 
 export default function App() {
-  const [programs, setPrograms] = useState([]); // Changed from string to array
+  const [programs, setPrograms] = useState([]);
   const [duration, setDuration] = useState(0);
   const [pin, setPin] = useState("");
   const [message, setMessage] = useState("");
@@ -13,12 +13,25 @@ export default function App() {
   const [countdown, setCountdown] = useState(0);
   const [blockedPrograms, setBlockedPrograms] = useState([]);
 
+  // Load and save programs from storage
+  useEffect(() => {
+    if (window.api && window.api.getPrograms) {
+      window.api.getPrograms().then(setPrograms);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (window.api && window.api.setPrograms) {
+      window.api.setPrograms(programs);
+    }
+  }, [programs]);
+
   useEffect(() => {
     const handleBlockingState = (event, { isBlocking, duration, programs }) => {
       setIsBlocking(isBlocking);
       if (isBlocking) {
         setCountdown(duration);
-        setBlockedPrograms(programs); // Store the list of blocked programs
+        setBlockedPrograms(programs);
         setMessage("");
       } else {
         setCountdown(0);
@@ -66,7 +79,7 @@ export default function App() {
 
     if (window.api && window.api.startBlock) {
       window.api.startBlock({
-        processNames: programs, // Pass the array
+        processNames: programs,
         durationMs: duration * 1000,
         pin
       });
@@ -116,7 +129,7 @@ export default function App() {
         </div>
       ) : (
         <>
-          <ProgramSelector onProgramsChange={setPrograms} />
+          <ProgramSelector programs={programs} setPrograms={setPrograms} />
           <Timer onChange={setDuration} />
           <PinInput onChange={setPin} />
           <button

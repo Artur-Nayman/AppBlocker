@@ -1,6 +1,9 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain, dialog } from "electron";
 import path from "node:path";
+import Store from "electron-store";
 import { startBlocking, stopBlocking } from "./blocker.js";
+
+const store = new Store();
 
 let win;
 
@@ -30,6 +33,18 @@ function notifyRenderer(isBlocking, data = {}) {
 }
 
 app.whenReady().then(createWindow);
+
+// IPC handlers for managing the stored program list
+ipcMain.handle("programs:get", () => store.get("programs", []));
+ipcMain.handle("programs:set", (e, programs) => store.set("programs", programs));
+ipcMain.handle("programs:browse", async () => {
+  const { canceled, filePaths } = await dialog.showOpenDialog({
+    properties: ["openFile", "multiSelections"],
+    filters: [{ name: "Executables", extensions: ["exe"] }],
+  });
+  if (canceled) return [];
+  return filePaths.map(p => path.basename(p));
+});
 
 ipcMain.handle("blocker:start", (e, data) => {
   startBlocking({
