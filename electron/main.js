@@ -23,9 +23,9 @@ function createWindow() {
   }
 }
 
-function notifyRenderer(isBlocking, duration = 0) {
+function notifyRenderer(isBlocking, data = {}) {
   if (win) {
-    win.webContents.send("blocking:state", { isBlocking, duration });
+    win.webContents.send("blocking:state", { isBlocking, ...data });
   }
 }
 
@@ -34,15 +34,15 @@ app.whenReady().then(createWindow);
 ipcMain.handle("blocker:start", (e, data) => {
   startBlocking({
     ...data,
-    onStop: () => notifyRenderer(false) // Callback to notify renderer when timer ends
+    onStop: () => notifyRenderer(false)
   });
-  notifyRenderer(true, data.durationMs / 1000);
+  notifyRenderer(true, { duration: data.durationMs / 1000, programs: data.processNames });
 });
 
 ipcMain.handle("blocker:stop", (e, data) => {
   const result = stopBlocking(data);
   if (result.success) {
-    notifyRenderer(false); // Notify renderer on manual stop
+    notifyRenderer(false);
   }
   return result;
 });

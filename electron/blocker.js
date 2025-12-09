@@ -2,39 +2,44 @@ import psList from "ps-list";
 import { exec } from "child_process";
 
 let interval = null;
-let targetProcess = "";
+let targetProcesses = []; // Changed from string to array
 let correctPin = "";
 let blocking = false;
 let timeoutId = null;
-let onStopCallback = null; // To notify the main process when the timer ends
+let onStopCallback = null;
 
-export function startBlocking({ processName, durationMs, pin, onStop }) {
+// processNames is now an array
+export function startBlocking({ processNames, durationMs, pin, onStop }) {
   if (blocking) return;
 
   blocking = true;
-  targetProcess = processName;
+  targetProcesses = processNames; // Store the array
   correctPin = pin;
-  onStopCallback = onStop; // Store the callback
+  onStopCallback = onStop;
 
-  console.log(`Blocking started for ${targetProcess}.`);
+  console.log(`Blocking started for: ${targetProcesses.join(", ")}.`);
 
   interval = setInterval(async () => {
     const list = await psList();
-    const running = list.find(p => p.name.toLowerCase() === targetProcess.toLowerCase());
-    if (running) {
-      try {
-        exec(`taskkill /IM ${targetProcess} /F`);
-      } catch (error) {
-        console.error(`Failed to kill process ${targetProcess}:`, error);
+    const lowercasedTargets = targetProcesses.map(t => t.toLowerCase());
+
+    for (const runningProcess of list) {
+      if (lowercasedTargets.includes(runningProcess.name.toLowerCase())) {
+        try {
+          // Use the actual process name from the list to avoid case issues
+          exec(`taskkill /IM ${runningProcess.name} /F`);
+        } catch (error) {
+          console.error(`Failed to kill process ${runningProcess.name}:`, error);
+        }
       }
     }
   }, 1500);
 
   timeoutId = setTimeout(() => {
-    console.log(`Blocking duration ended for ${targetProcess}.`);
+    console.log(`Blocking duration ended for ${targetProcesses.join(", ")}.`);
     const result = stopBlocking({ pin: correctPin, force: true });
     if (result.success && onStopCallback) {
-      onStopCallback(); // Notify main.js that blocking has stopped
+      onStopCallback();
     }
   }, durationMs);
 }
@@ -51,11 +56,12 @@ export function stopBlocking({ pin, force = false }) {
     interval = null;
     timeoutId = null;
     correctPin = "";
+    targetProcesses = []; // Clear the array
     onStopCallback = null;
     console.log("Blocking stopped successfully.");
     return { success: true, message: "Blocking stopped." };
   } else {
-    console.log(`Incorrect PIN provided. Stored PIN is ${correctPin}`);
+    console.log(`Incorrect PIN provided.`);
     return { success: false, message: "Incorrect PIN." };
   }
 }

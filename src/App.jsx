@@ -4,23 +4,25 @@ import Timer from "./components/Timer";
 import PinInput from "./components/PinInput";
 
 export default function App() {
-  const [program, setProgram] = useState("");
+  const [programs, setPrograms] = useState([]); // Changed from string to array
   const [duration, setDuration] = useState(0);
   const [pin, setPin] = useState("");
   const [message, setMessage] = useState("");
   
   const [isBlocking, setIsBlocking] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const [blockedPrograms, setBlockedPrograms] = useState([]);
 
   useEffect(() => {
-    const handleBlockingState = (event, { isBlocking, duration }) => {
+    const handleBlockingState = (event, { isBlocking, duration, programs }) => {
       setIsBlocking(isBlocking);
       if (isBlocking) {
         setCountdown(duration);
-        setMessage(""); // Clear previous messages
+        setBlockedPrograms(programs); // Store the list of blocked programs
+        setMessage("");
       } else {
         setCountdown(0);
-        // Set a message only if the blocking state is explicitly turned off
+        setBlockedPrograms([]);
         setMessage("Blocking has been stopped.");
       }
     };
@@ -48,10 +50,9 @@ export default function App() {
 
   const start = () => {
     setMessage("");
-    let programName = program.trim();
 
-    if (!programName) {
-      setMessage("Please enter a program name.");
+    if (programs.length === 0) {
+      setMessage("Please add at least one program to block.");
       return;
     }
     if (duration <= 0) {
@@ -62,13 +63,10 @@ export default function App() {
       setMessage("Please enter a PIN.");
       return;
     }
-    if (!programName.toLowerCase().endsWith(".exe")) {
-      programName += ".exe";
-    }
 
     if (window.api && window.api.startBlock) {
       window.api.startBlock({
-        processName: programName,
+        processNames: programs, // Pass the array
         durationMs: duration * 1000,
         pin
       });
@@ -86,11 +84,10 @@ export default function App() {
       const result = await window.api.stopBlock(pin);
       if (result.success) {
         setMessage("Blocking stopped successfully.");
-        // The listener will handle setting isBlocking to false
       } else {
         setMessage(result.message || "Failed to stop blocking.");
       }
-      setPin(""); // Clear PIN input after attempt
+      setPin("");
     }
   };
 
@@ -100,7 +97,10 @@ export default function App() {
 
       {isBlocking ? (
         <div className="flex flex-col items-center">
-          <p className="text-xl mb-4">Blocking is active. Time remaining:</p>
+          <p className="text-xl mb-2">Blocking is active for:</p>
+          <ul className="mb-4">
+            {blockedPrograms.map(p => <li key={p} className="font-semibold">{p}</li>)}
+          </ul>
           <p className="text-6xl font-bold mb-4">
             {new Date(countdown * 1000).toISOString().substr(11, 8)}
           </p>
@@ -116,7 +116,7 @@ export default function App() {
         </div>
       ) : (
         <>
-          <ProgramSelector onChange={setProgram} />
+          <ProgramSelector onProgramsChange={setPrograms} />
           <Timer onChange={setDuration} />
           <PinInput onChange={setPin} />
           <button
