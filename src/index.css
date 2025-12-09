@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Додатково можна задати нормальний фон і колір тексту для body */
+body {
+  background-color: #1e1e1e; /* темно-сірий фон */
+  color: #ffffff; /* білий текст */
+  font-family: sans-serif;
+}
