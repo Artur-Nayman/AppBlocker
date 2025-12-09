@@ -1,5 +1,5 @@
 {
-  "name": "program-blocker",
+  "name": "AppBlocker",
   "version": "1.0.0",
   "main": "electron/main.js",
   "type": "module",
