@@ -4,6 +4,54 @@ import Timer from "./components/Timer";
 import PinInput from "./components/PinInput";
 import SavedPrograms from "./components/SavedPrograms";
 
+function Settings({ settings, setSettings }) {
+  const handleSettingChange = (key, value) => {
+    setSettings(prev => ({ ...prev, [key]: value }));
+    if (window.api) {
+      const setterName = `set${key.charAt(0).toUpperCase() + key.slice(1)}`;
+      if (window.api[setterName]) {
+        window.api[setterName](value);
+      }
+    }
+  };
+
+  return (
+    <div className="mt-6 pt-4 border-t border-gray-700 text-left">
+      <h3 className="text-lg font-semibold mb-3 text-center">Settings</h3>
+      <div className="space-y-3">
+        <label className="flex items-center gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={settings.MinimizeToTray}
+            onChange={(e) => handleSettingChange('MinimizeToTray', e.target.checked)}
+            className="form-checkbox h-5 w-5 text-blue-600 bg-gray-800 border-gray-600 rounded"
+          />
+          <span>Minimize to tray on close</span>
+        </label>
+        <label className="flex items-center gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={settings.StartOnLogin}
+            onChange={(e) => handleSettingChange('StartOnLogin', e.target.checked)}
+            className="form-checkbox h-5 w-5 text-blue-600 bg-gray-800 border-gray-600 rounded"
+          />
+          <span>Start automatically on login</span>
+        </label>
+        <label className={`flex items-center gap-3 cursor-pointer ${!settings.StartOnLogin ? 'opacity-50' : ''}`}>
+          <input
+            type="checkbox"
+            checked={settings.StartMinimized}
+            onChange={(e) => handleSettingChange('StartMinimized', e.target.checked)}
+            disabled={!settings.StartOnLogin}
+            className="form-checkbox h-5 w-5 text-blue-600 bg-gray-800 border-gray-600 rounded"
+          />
+          <span>Start minimized in tray</span>
+        </label>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [savedPrograms, setSavedPrograms] = useState([]);
   const [selectedPrograms, setSelectedPrograms] = useState([]);
@@ -16,16 +64,33 @@ export default function App() {
   const [countdown, setCountdown] = useState(0);
   const [blockedPrograms, setBlockedPrograms] = useState([]);
 
+  const [settings, setSettings] = useState({
+    MinimizeToTray: false,
+    StartOnLogin: false,
+    StartMinimized: false,
+  });
+
   useEffect(() => {
-    if (window.api && window.api.getPrograms) {
+    if (window.api) {
       window.api.getPrograms().then(setSavedPrograms);
+      Promise.all([
+        window.api.getMinimizeToTray(),
+        window.api.getStartOnLogin(),
+        window.api.getStartMinimized(),
+      ]).then(([minimize, startOnLogin, startMinimized]) => {
+        setSettings({
+          MinimizeToTray: minimize,
+          StartOnLogin: startOnLogin,
+          StartMinimized: startMinimized,
+        });
+      });
     }
   }, []);
 
   const updateSavedPrograms = () => {
     const newPrograms = [...new Set([...savedPrograms, ...selectedPrograms])];
     setSavedPrograms(newPrograms);
-    if (window.api && window.api.setPrograms) {
+    if (window.api) {
       window.api.setPrograms(newPrograms);
     }
   };
@@ -74,7 +139,6 @@ export default function App() {
 
   const start = () => {
     setMessage("");
-
     if (selectedPrograms.length === 0) {
       setMessage("Please select at least one program to block.");
       return;
@@ -87,10 +151,8 @@ export default function App() {
       setMessage("Please enter a PIN.");
       return;
     }
-
     updateSavedPrograms();
-
-    if (window.api && window.api.startBlock) {
+    if (window.api) {
       window.api.startBlock({
         processNames: selectedPrograms,
         durationMs: duration * 1000,
@@ -106,7 +168,7 @@ export default function App() {
       setMessage("Please enter a PIN to stop blocking.");
       return;
     }
-    if (window.api && window.api.stopBlock) {
+    if (window.api) {
       const result = await window.api.stopBlock(pin);
       if (result.success) {
         setMessage("Blocking stopped successfully.");
@@ -121,7 +183,6 @@ export default function App() {
 
   return (
     <div className="bg-neutral-900 text-white min-h-screen p-6 text-center">
-      {/* This wrapper will constrain the width and center the content */}
       <div className="max-w-2xl mx-auto">
         <h1 className="text-3xl font-bold mb-6">App Blocker</h1>
 
@@ -137,10 +198,7 @@ export default function App() {
             <div className="w-full max-w-xs">
               <PinInput onChange={setPin} />
             </div>
-            <button
-              onClick={stop}
-              className="mt-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
-            >
+            <button onClick={stop} className="mt-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700">
               Stop Blocking with PIN
             </button>
           </div>
@@ -149,13 +207,11 @@ export default function App() {
             <ProgramSelector selectedPrograms={selectedPrograms} setSelectedPrograms={setSelectedPrograms} />
             <Timer onChange={setDuration} />
             <PinInput onChange={setPin} />
-            <button
-              onClick={start}
-              className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 w-full"
-            >
+            <button onClick={start} className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 w-full">
               Start Blocking
             </button>
             <SavedPrograms programs={availableSavedPrograms} onSelect={handleSelectFromSaved} />
+            <Settings settings={settings} setSettings={setSettings} />
           </>
         )}
 
