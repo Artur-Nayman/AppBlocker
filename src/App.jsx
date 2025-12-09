@@ -5,9 +5,7 @@ import PinInput from "./components/PinInput";
 import SavedPrograms from "./components/SavedPrograms";
 
 export default function App() {
-  // State for the complete list of all programs ever added
   const [savedPrograms, setSavedPrograms] = useState([]);
-  // State for programs selected for the current blocking session
   const [selectedPrograms, setSelectedPrograms] = useState([]);
   
   const [duration, setDuration] = useState(0);
@@ -18,14 +16,12 @@ export default function App() {
   const [countdown, setCountdown] = useState(0);
   const [blockedPrograms, setBlockedPrograms] = useState([]);
 
-  // Load saved programs from storage on startup
   useEffect(() => {
     if (window.api && window.api.getPrograms) {
       window.api.getPrograms().then(setSavedPrograms);
     }
   }, []);
 
-  // When blocking starts, update the main saved list with any new programs
   const updateSavedPrograms = () => {
     const newPrograms = [...new Set([...savedPrograms, ...selectedPrograms])];
     setSavedPrograms(newPrograms);
@@ -47,7 +43,7 @@ export default function App() {
         setCountdown(duration);
         setBlockedPrograms(programs);
         setMessage("");
-        setSelectedPrograms([]); // Clear selection after starting
+        setSelectedPrograms([]);
       } else {
         setCountdown(0);
         setBlockedPrograms([]);
@@ -92,7 +88,7 @@ export default function App() {
       return;
     }
 
-    updateSavedPrograms(); // Update the master list
+    updateSavedPrograms();
 
     if (window.api && window.api.startBlock) {
       window.api.startBlock({
@@ -121,52 +117,54 @@ export default function App() {
     }
   };
 
-  // Filter out programs that are already selected for the current session
   const availableSavedPrograms = savedPrograms.filter(p => !selectedPrograms.includes(p));
 
   return (
     <div className="bg-neutral-900 text-white min-h-screen p-6 text-center">
-      <h1 className="text-3xl font-bold mb-6">App Blocker</h1>
+      {/* This wrapper will constrain the width and center the content */}
+      <div className="max-w-2xl mx-auto">
+        <h1 className="text-3xl font-bold mb-6">App Blocker</h1>
 
-      {isBlocking ? (
-        <div className="flex flex-col items-center">
-          <p className="text-xl mb-2">Blocking is active for:</p>
-          <ul className="mb-4">
-            {blockedPrograms.map(p => <li key={p} className="font-semibold">{p}</li>)}
-          </ul>
-          <p className="text-6xl font-bold mb-4">
-            {new Date(countdown * 1000).toISOString().substr(11, 8)}
-          </p>
-          <div className="w-full max-w-xs">
-            <PinInput onChange={setPin} />
+        {isBlocking ? (
+          <div className="flex flex-col items-center">
+            <p className="text-xl mb-2">Blocking is active for:</p>
+            <ul className="mb-4">
+              {blockedPrograms.map(p => <li key={p} className="font-semibold">{p}</li>)}
+            </ul>
+            <p className="text-6xl font-bold mb-4">
+              {new Date(countdown * 1000).toISOString().substr(11, 8)}
+            </p>
+            <div className="w-full max-w-xs">
+              <PinInput onChange={setPin} />
+            </div>
+            <button
+              onClick={stop}
+              className="mt-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
+            >
+              Stop Blocking with PIN
+            </button>
           </div>
-          <button
-            onClick={stop}
-            className="mt-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
-          >
-            Stop Blocking with PIN
-          </button>
-        </div>
-      ) : (
-        <>
-          <ProgramSelector selectedPrograms={selectedPrograms} setSelectedPrograms={setSelectedPrograms} />
-          <Timer onChange={setDuration} />
-          <PinInput onChange={setPin} />
-          <button
-            onClick={start}
-            className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 w-full"
-          >
-            Start Blocking
-          </button>
-          <SavedPrograms programs={availableSavedPrograms} onSelect={handleSelectFromSaved} />
-        </>
-      )}
+        ) : (
+          <>
+            <ProgramSelector selectedPrograms={selectedPrograms} setSelectedPrograms={setSelectedPrograms} />
+            <Timer onChange={setDuration} />
+            <PinInput onChange={setPin} />
+            <button
+              onClick={start}
+              className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 w-full"
+            >
+              Start Blocking
+            </button>
+            <SavedPrograms programs={availableSavedPrograms} onSelect={handleSelectFromSaved} />
+          </>
+        )}
 
-      {message && (
-        <p className={`mt-4 ${message.includes("Incorrect") || message.includes("Please") ? 'text-red-400' : 'text-green-400'}`}>
-          {message}
-        </p>
-      )}
+        {message && (
+          <p className={`mt-4 ${message.includes("Incorrect") || message.includes("Please") ? 'text-red-400' : 'text-green-400'}`}>
+            {message}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
